@@ -2,7 +2,7 @@
 
 import json, base64
 
-from flask import Flask, request
+from flask import Flask, request, make_response, redirect
 from Crypto.Cipher import AES
 
 from config import *
@@ -48,11 +48,15 @@ def wrap():
 @app.route('/ct/<path:wrapper>')
 def tracing(wrapper):
     print "wrapper =", wrapper
-    try:
-        url, _, uid, task_type = url_decode(wrapper)
-    except Exception as err:
-        print err
-    return str((url, uid, task_type))
+    url, _, uid, task_type = url_decode(wrapper)
+    resp = make_response(redirect(url))
+    if not request.cookies.get("ct"):
+        resp.set_cookie('ct', '1')
+        # report
+        print "report"
+    else:
+        print "cheat"
+    return resp
 
 
 ###
