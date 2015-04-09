@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*- 
 
-import json, base64
+import json, base64, random, time
 
 from flask import Flask, request, make_response, redirect
 from Crypto.Cipher import AES
+import requests
 
 from config import *
-
+from app_task_compat_pb2 import *
 
 app = Flask(__name__)
 
-#
 
 @app.route('/')
 def click_tracker():
     return "click_tracker"
 
 
-# input:  nyy{url: xx, seq: 1, trace_type: 1}
+# input:  nyy{url: xx, seq: 1, trace_type: 1, meta_data:{uid: 50, task_type: 1}}
 # output: {ret: OK, seq: 1, url_wrapper: yy}
 @app.route('/wrap', methods=['POST'])
 def wrap():
@@ -37,7 +37,7 @@ def wrap():
     seq, url, trace_type, uid, task_type = data
     print "url=", url
     try:
-        en = url_encode(url, trace_type, uid, task_type)
+        en = url_encode(url, trace_type, appid, uid, task_type)
     except Exception as err:
         print err
 
@@ -48,20 +48,25 @@ def wrap():
 @app.route('/ct/<path:wrapper>')
 def tracing(wrapper):
     print "wrapper =", wrapper
-    url, _, uid, task_type = url_decode(wrapper)
+    url, _, appid, uid, task_type = url_decode(wrapper)
     resp = make_response(redirect(url))
     if not request.cookies.get("ct"):
         resp.set_cookie('ct', '1')
-        # report
+        ReportCompatAction(appid, uid, task_type)
         print "report"
     else:
-        print "cheat"
+        print "dup"
     return resp
 
 
 ###
 
-# trace_type = 1 --> [url, trace_type, uid, task_type] 
+# encode rule:
+#  1) make list: [url, trace_type, appid, uid, task_type] 
+#  2) turn the list into json
+#  3) encrypt the json string by AES
+#  4) encode the result by base64
+#  5) joint the letter "L" in front of the b64 string
 def url_encode(*args):
     s = json.dumps(args)
     y = (16 - len(s) % 16) + len(s)
@@ -108,14 +113,27 @@ def try_get_nyy_data(dt):
         return False
 
 
-def nyy_encode(data):
-    pass
+def ReportCompatAction(appid, uid, task_type):
+    req = ReportReq()
+    req.task_type = task_type
+    req.report_seq = random.randint(0, int(time.time()))
+    req.amount = 1
 
-def nyy_decode(jn):
-    nyy = json.loads(jn)
-    return nyy.get("data")
+    pb = ReqProto()
+    pb.uri = REPORT_REQ
+    pb.appid = appid
+    pb.subsid = 0
+    pb.seq = 0
+    pb.version = 1
+    pb.report_req = req
+
+    bin = pb.SerializeToString()
+    s = base64.b64decode(bin)
+    jn = json.dumps({"uid": uid, "pb": s})
+
+    resp = requests.post(TASK_COMPAT_ADDR, jn)
+    if not resp.ok:
+        print "REPORT FAIL:", resp.status_code, resp.text
 
 
-if __name__ == '__main__':
-    app.run()
 
