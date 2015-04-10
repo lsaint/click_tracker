@@ -32,17 +32,17 @@ def wrap():
     appid, sign, data = nyy
     data = try_get_wrap_data(data)
     if not data:
-        return json.dumps("wrap data err", appid)
+        return gen_error("wrap data err", appid)
 
     seq, url, trace_type, uid, task_type = data
     print "url=", url
-    try:
-        en = url_encode(url, trace_type, appid, uid, task_type)
-    except Exception as err:
-        print err
+    en = url_encode(url, trace_type, appid, uid, task_type)
 
     wrapper = "{0}{1}".format(DOMAIN, en)
-    return wrapper
+    ret = json.dumps({"appId": appid,
+                        "sign": sign,
+                        "data": {"ret": "OK", "seq": seq, "wrapper": wrapper}})
+    return ret
 
 
 @app.route('/ct/<path:wrapper>')
