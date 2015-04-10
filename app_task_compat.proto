@@ -1,0 +1,192 @@
+package protocol.task;
+
+enum Service {
+	kServiceType = 10315;
+}
+
+enum Appid {
+	kAppid21Point = 50038;
+	kAppidNiuNiu = 10076;
+	kAppidFindUndercover = 10100;
+	kAppidFriend = 10089;
+	kFinance = 50020;
+}
+
+enum Code {
+	OK = 0;
+	TASKTYPE_NOT_EXISTS = 1;	 // 任务类型不存在
+	TASKPKG_NOT_EXISTS = 2;      // 任务包(taskpkgid)不存在
+	TASK_NOT_EXISTS = 3;         // 任务(taskid)不存在
+	TASK_NOT_ACTIVATED = 4;		 // 任务没有激活
+	TASK_EXPIRED = 5;			 // 任务过期
+	TASK_NOT_FINISHED = 6;       // 任务没有完成
+	AWARD_HAS_RECEIVED = 7;      // 奖励已经领取
+	MABYE_WG = 8;				 // 可能是外挂
+	ERROR = 0xFF;				 // 系统错误
+}
+
+enum Type {
+	INVALID_REQ = 100;
+	QUERY_TASKS_REQ = 101;
+	REPORT_REQ = 102;
+	RECEIVE_AWARD_REQ = 103;
+
+	INVALID_RES = 200;
+	QUERY_TASKS_RES= 201;
+	REPORT_RES = 202;
+	RECEIVE_AWARD_RES = 203;
+	BC_UPDATE_TASKS = 204;
+}
+
+message ReqProto {
+	required Type uri = 1 [default = INVALID_REQ];
+	required uint32 appid = 2;
+	required uint32 subsid = 3;   						// 子频道ID
+	required uint32 seq = 4; 		    				// 客户端生成
+	required uint32 version = 5;						// 协议版本号
+
+	optional QueryTasksReq query_tasks_req = 6;
+	optional ReportReq report_req = 7;
+	optional ReceiveAwardReq receive_award_req = 8;     // 领取奖励请求
+}
+
+message ResProto {
+	required Type uri = 1 [default = INVALID_RES];
+	required uint32 appid = 2;
+	required Code code = 3;
+	required string msg = 4;
+	required uint32 seq = 5; 		    			
+
+	optional QueryTasksRes query_tasks_res = 6;
+	optional ReportRes report_res = 7;
+	optional ReceiveAwardRes receive_award_res = 8;    // 领取奖励返回
+	optional BcUpdateTasks bc_update_tasks = 9; 	   // 广播更新任务
+}
+
+message Task {
+	required uint32 taskpkgid = 1;       // 任务包ID
+	required uint32 taskid = 2;          // 任务ID
+	required uint32	task_type = 3;		 // 任务类型TaskType,客户端可以根据task_type选择不再一直上报ReportReq
+	optional uint32 amount = 4;			 // 任务类型TYPE_JOIN_AND_STAY 加入21点游戏并持续10分钟 amount = 10
+	required uint32 finished = 5;        // 任务是否完成
+	required uint32 received = 6;        // 是否领取奖励
+
+	required uint32 current_status = 7;  // 当前任务状态
+	required uint32 total_status = 8;    // 任务状态总数
+
+	required string name = 9;            // 任务名字或者标题
+	required string detail = 10;         // 任务描述          
+	required string prompt = 11;         // 完成任务相关提示
+	required string award_detail = 12;   // 奖励相关描述
+	required uint32 award_amount = 13;   // 奖励数量
+	required uint32 index = 14;		     // 后端配置，用于客户端任务排序
+	optional string url = 15;			 // 分享链接
+}
+
+message TaskPkg {
+	required uint32 taskpkgid = 1;       // 任务包ID
+	repeated Task tasks = 2;             // 任务列表
+	required string name = 3;            // 任务包标题，例如每日任务和常规任务
+	required string detail = 4;          // 任务包描述
+	required string prompt = 5;          // 任务包提示
+}
+
+// 任务包类型
+// 对单个应用而言，任务包类型taskpkg_type和任务包taskpkgid相等
+enum TaskPkgType {
+	TYPE_DAILY = 100;   				 // 每日任务
+	TYPE_NORMAL = 101;  				 // 常规任务
+	TYPE_FLOWER = 102;					 // 小红花任务
+}
+
+// 任务类型
+// 新增任务类型客户端需要考虑是否升级版本version
+
+// 21点任务类型
+enum TaskType {
+	TYPE_SEAT_AND_PLAY = 201;
+	TYPE_JOIN_AND_STAY = 202;
+	TYPE_SEND_GIFT = 203;
+	TYPE_WIN = 204;
+	TYPE_REWARD = 205;
+	TYPE_BLACKJACK = 206;
+	TYPE_21Point = 207;
+	TYPE_LOGIN = 208;
+	TYPE_UPGRADE = 209;
+}
+
+// 谁是卧底任务类型
+enum UndercoverTaskType {
+	UNDERCOVER_TYPE_SEAT_AND_PLAY = 401;
+	UNDERCOVER_TYPE_JOIN_AND_STAY = 402;
+	UNDERCOVER_TYPE_VOTE = 403;
+	UNDERCOVER_TYPE_SEND_GIFT = 404;
+	UNDERCOVER_TYPE_BE_UNDERCOVER = 405;
+	UNDERCOVER_TYPE_LOGIN = 406;
+	UNDERCOVER_TYPE_HIT = 407; // 暴击
+	UNDERCOVER_TYPE_DODGE = 408;// 闪避
+}
+
+//财经任务类型
+enum FinanceTaskType {
+	FINANCE_CHECK_IN = 501; //签到任务
+	FINANCE_WATCH_LIVE = 502; //观看直播
+	FINANCE_SHARE = 503;  //分享任务
+	FINANCE_CHECK_TIP = 504; //查看锦囊
+	FINANCE_GIVE_GOOD = 505; //送赞
+	FINANCE_GIVE_TEA = 506;		 //送爱心茶
+	FINANCE_GIVE_HARDEN = 507;	 //送涨停
+	FINANCE_GIVE_WEALTH_GOD =508; //送财神
+	FINANCE_USE_QUERYS = 509; //使用提问道具
+	FINANCE_SEQ_LOGIN = 510;  //连续登陆
+	FINANCE_SUBCRIB_TEACHER = 511;	//订阅老师
+	FINANCE_GET_MASTER = 512; //拜师
+}
+
+message Pkg {
+	required uint32 taskpkgid = 1;     	  // 任务包ID
+	required TaskPkg taskpkg = 2;	      // 具体任务包
+}
+
+// 用户进入游戏时发查询请求
+// 返回当前还未领奖(未完成或者已经完成)的任务列表
+
+// 注意：若任务存在前置任务，前置任务未完成，
+// 该任务不会出现在任务列表中,领取奖励返回返回后置任务
+message QueryTasksReq {
+}
+
+message QueryTasksRes {
+	repeated Pkg pkgs = 1;			  // 根据taskpkg_type排序
+}
+
+message ReportReq {
+	required uint32   task_type = 1;  //任务类型
+	required uint64   report_seq = 2; //自增序列号，唯一，用于重试
+	required uint32   amount = 3; 	  //累加数量
+	optional uint32	  giftid = 4;     //例如任务类型TYPE_SEND_GIFT对应的礼物ID
+	optional uint32	  touid = 5;	  //小红花主持UID
+}
+
+message ReportRes {
+	required uint32 task_type = 1;  //任务类型
+	repeated Pkg pkgs = 2;	  		// 状态发生改变的任务列表
+}
+
+// 小红花任务只需要发送FinishTaskReq即可，不用发送ReceiveAwardReq
+message ReceiveAwardReq {
+	required uint32 taskpkgid = 1;
+	required uint32 taskid = 2;	
+	required uint64 recv_seq = 3; 		 // 流水号，防止用户短时间内连续多次领奖
+}
+
+message ReceiveAwardRes {
+	required uint32 taskpkgid = 1;
+	required uint32 taskid = 2;
+	required uint64 recv_seq = 3; 		 // 流水号
+	optional Task   next_task = 4;     	 // 该任务可能存在后置任务，后置任务也可能已经完成任务，但是未领取奖励
+}
+
+// 每日任务凌晨清零，收到广播更新，客户端重新发查询请求
+message BcUpdateTasks { 
+}
