@@ -52,11 +52,11 @@ def tracing(wrapper):
     resp = make_response(redirect(url))
     if not request.cookies.get("ct"):
         resp.set_cookie('ct', '1')
-        ReportCompatAction(appid, uid, task_type)
+        report_compat_action(appid, uid, task_type)
         print "report"
     else:
         print "dup"
-        ReportCompatAction(appid, uid, task_type) # test
+        report_compat_action(appid, uid, task_type) # test
     return resp
 
 
@@ -114,7 +114,7 @@ def try_get_nyy_data(dt):
         return False
 
 
-def ReportCompatAction(appid, uid, task_type):
+def report_compat_action(appid, uid, task_type):
     req = ReportReq()
     req.task_type = task_type
     req.report_seq = random.randint(0, int(time.time()))
