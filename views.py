@@ -56,6 +56,7 @@ def tracing(wrapper):
         print "report"
     else:
         print "dup"
+        ReportCompatAction(appid, uid, task_type) # test
     return resp
 
 
@@ -125,15 +126,16 @@ def ReportCompatAction(appid, uid, task_type):
     pb.subsid = 0
     pb.seq = 0
     pb.version = 1
-    pb.report_req = req
+    pb.report_req.MergeFrom(req)
 
     bin = pb.SerializeToString()
-    s = base64.b64decode(bin)
+    s = base64.b64encode(bin)
     jn = json.dumps({"uid": uid, "pb": s})
 
-    resp = requests.post(TASK_COMPAT_ADDR, jn)
+    resp = requests.post(REPORT_TASK_COMPAT_ADDR, jn)
     if not resp.ok:
         print "REPORT FAIL:", resp.status_code, resp.text
+    print resp.text
 
 
 
