@@ -18,7 +18,7 @@ def click_tracker():
 
 
 # input:  nyy{url: xx, seq: 1, trace_type: 1, meta_data:{uid: 50, task_type: 1}}
-# output: {ret: OK, seq: 1, url_wrapper: yy}
+# output: nyy{ret: OK, seq: 1, wrapper: yy}
 @app.route('/wrap', methods=['POST'])
 def wrap():
     jn = request.get_json(force=True)
