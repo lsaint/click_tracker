@@ -42,7 +42,10 @@ def wrap():
 
 #@app.route('/ct/<path:wrapper>')
 def tracing(wrapper):
-    url, _, appid, uid, task_type = url_decode(wrapper)
+    de = url_decode(wrapper)
+    if not de:
+        return "X"
+    url, _, appid, uid, task_type = de
     resp = make_response(redirect(url))
     if not request.cookies.get(wrapper):
         resp.set_cookie(wrapper, "L")
@@ -69,11 +72,15 @@ def url_encode(*args):
 
 
 def url_decode(en):
-    en = en[1:]
-    ecb = base64.b64decode(en)
-    obj = AES.new(KEY, AES.MODE_ECB)
-    jn = obj.decrypt(ecb).strip()
-    return json.loads(jn)
+    try:
+        en = en[1:]
+        ecb = base64.b64decode(en)
+        obj = AES.new(KEY, AES.MODE_ECB)
+        jn = obj.decrypt(ecb).strip()
+        return json.loads(jn)
+    except Exception as err:
+        logging.debug("url decode err: %s", err)
+        reutrn False
 
 
 def gen_error(ret, appid=0, sign=""):
