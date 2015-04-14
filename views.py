@@ -1,31 +1,26 @@
 # -*- coding: utf-8 -*- 
 
-import json, base64, random, time
+import json, base64, random, time, logging
 
-from flask import Flask, request, make_response, redirect
+from flask import request, make_response, redirect
 from Crypto.Cipher import AES
 import requests
 
 from config import *
 from app_task_compat_pb2 import *
 
-app = Flask(__name__)
 
-
-@app.route('/')
-def click_tracker():
-    return "click_tracker"
+logging.basicConfig(format=LOG_FORMAT, level=LOG_LEVEL)
 
 
 # input:  nyy{url: xx, seq: 1, trace_type: 1, meta_data:{uid: 50, task_type: 1}}
 # output: nyy{ret: OK, seq: 1, wrapper: yy}
-@app.route('/wrap', methods=['POST'])
+#@app.route('/wrap', methods=['POST'])
 def wrap():
     jn = request.get_json(force=True)
-    print "get_json", jn
+    logging.debug("get_json: %s", jn)
 
     nyy = try_get_nyy_data(jn)
-    print "nyy", nyy
     if not nyy:
         return gen_error("nyy format err")
 
@@ -35,7 +30,6 @@ def wrap():
         return gen_error("wrap data err", appid)
 
     seq, url, trace_type, uid, task_type = data
-    print "url=", url
     en = url_encode(url, trace_type, appid, uid, task_type)
 
     wrapper = "{0}{1}".format(DOMAIN, en)
@@ -45,18 +39,16 @@ def wrap():
     return ret
 
 
-@app.route('/ct/<path:wrapper>')
+#@app.route('/ct/<path:wrapper>')
 def tracing(wrapper):
-    print "wrapper =", wrapper
     url, _, appid, uid, task_type = url_decode(wrapper)
     resp = make_response(redirect(url))
     if not request.cookies.get("ct"):
         resp.set_cookie('ct', '1')
         report_compat_action(appid, uid, task_type)
-        print "report"
+        logging.info("trace done: %s, %s, %s, %s", url, appid, uid, task_type)
     else:
-        print "dup"
-        report_compat_action(appid, uid, task_type) # test
+        logging.warn("dup trace: %s", url)
     return resp
 
 
@@ -105,12 +97,11 @@ def try_get_nyy_data(dt):
         appid = dt.get("appId")
         sign = dt.get("sign")
         data = dt.get("data")
-        print appid, "-", sign, "-", data
         if appid and (data is not None):
             return appid, sign, data
         return False
     except Exception as err:
-        print "check_wrap_data err:", err
+        logging.error("try_get_nyy_data err: %s", err)
         return False
 
 
@@ -134,8 +125,6 @@ def report_compat_action(appid, uid, task_type):
 
     resp = requests.post(REPORT_TASK_COMPAT_ADDR, jn)
     if not resp.ok:
-        print "REPORT FAIL:", resp.status_code, resp.text
-    print resp.text
-
+        logging.error("REPORT FAIL: %s, %s", resp.status_code, resp.text)
 
 
