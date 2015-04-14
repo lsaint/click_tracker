@@ -80,7 +80,7 @@ def url_decode(en):
         return json.loads(jn)
     except Exception as err:
         logging.debug("url decode err: %s", err)
-        reutrn False
+        return False
 
 
 def gen_error(ret, appid=0, sign=""):
