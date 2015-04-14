@@ -44,8 +44,8 @@ def wrap():
 def tracing(wrapper):
     url, _, appid, uid, task_type = url_decode(wrapper)
     resp = make_response(redirect(url))
-    if not request.cookies.get("ct"):
-        resp.set_cookie('ct', '1')
+    if not request.cookies.get(wrapper):
+        resp.set_cookie(wrapper, "L")
         report_compat_action(appid, uid, task_type)
         logging.info("trace done: %s, %s, %s, %s", url, appid, uid, task_type)
     else:
