@@ -36,6 +36,7 @@ def wrap():
     ret = json.dumps({"appId": appid,
                         "sign": sign,
                         "data": {"ret": "OK", "seq": seq, "wrapper": wrapper}})
+    logging.info("wrap ret: %s", ret)
     return ret
 
 
@@ -107,13 +108,13 @@ def try_get_nyy_data(dt):
 
 def report_compat_action(appid, uid, task_type):
     req = ReportReq()
-    req.task_type = task_type
+    req.task_type = int(task_type)
     req.report_seq = random.randint(0, int(time.time()))
     req.amount = 1
 
     pb = ReqProto()
     pb.uri = REPORT_REQ
-    pb.appid = appid
+    pb.appid = int(appid)
     pb.subsid = 0
     pb.seq = 0
     pb.version = 1
