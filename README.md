@@ -1,8 +1,5 @@
 
-require:
-    virtualenv
-    virtualenvwrapper
-    flask
-    pycrypto
-    protobuf
-    requests
+virtualenv  
+virtualenvwrapper  
+
+pip install -r requirements.txt  
