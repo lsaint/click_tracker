@@ -30,6 +30,8 @@ def wrap():
         return gen_error("wrap data err", appid)
 
     seq, url, trace_type, uid, task_type = data
+    if not check_url(url):
+        return gen_error("invalid http url", appid, seq=seq)
     en = url_encode(url, trace_type, appid, uid, task_type)
 
     wrapper = "{0}{1}".format(DOMAIN, en)
@@ -83,8 +85,12 @@ def url_decode(en):
         return False
 
 
-def gen_error(ret, appid=0, sign=""):
-    return json.dumps({"appId": appid, "sign": sign, "data": {"ret": ret}})
+def check_url(url):
+    return url.startswith("http")
+
+
+def gen_error(ret, appid=0, sign="", seq=0):
+    return json.dumps({"appId": appid, "sign": sign, "data": {"ret": ret, "seq": seq}})
 
 
 def try_get_wrap_data(data):
