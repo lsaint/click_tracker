@@ -130,7 +130,7 @@ def report_compat_action(appid, uid, task_type):
     pb.appid = int(appid)
     pb.subsid = 0
     pb.seq = 0
-    pb.version = 1
+    pb.version = REPORT_VERSION
     pb.report_req.MergeFrom(req)
 
     bin = pb.SerializeToString()
