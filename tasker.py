@@ -57,7 +57,7 @@ def pkg_section_process(lt):
     p.ctime = today()
     p.mtime = today()
 
-    S.add(p)
+    return p
 
 #+-------------------------+----------------------+------+-----+---------------------+
 #| Field                   | Type                 | Null | Key | Default             |
@@ -124,7 +124,17 @@ def task_section_process(lt):
     task.ctime = today()
     task.mtime = today()
 
-    S.add(task)
+    return task
+
+
+def task_action_section_process(lt, is_multi):
+    S.query(Task).filter_by(task_id=int(lt[0])).update({
+        Task.action_description: u(lt[1]),
+        Task.need_done_count: int(lt[2]),
+        Task.handle_type: int(lt[3]),
+        Task.expand: lt[4],
+        Task.action_type: int(lt[5]),
+        Task.have_other_actions: int(is_multi)})
 
 
 
@@ -153,8 +163,7 @@ def action_section_process(lt):
     a.expand = lt[4]
     a.action_type = lt[5] or 0
 
-    S.add(a)
-
+    return a
 
 
 def parse_file(f):
@@ -164,22 +173,56 @@ def parse_file(f):
 
         lines = lines[2:]
 
+        ret = []
         for line in lines:
             lt = line.split("\t")
             lt = [x.strip() for x in lt]
             print lt
 
-            #pkg_section_process(lt)
-            #action_section_process(lt)
-            task_section_process(lt)
+            ret.append(lt)
 
-            S.commit()
+    return ret
+
+
+def save_pkg(f):
+    for lt in parse_file(f):
+        S.add(pkg_section_process(lt))
+    S.commit()
+
+
+def save_task_and_action(ft, fa):
+    ltt = parse_file(ft)
+    lta = parse_file(fa)
+
+    # write task.sql, default action
+    for lt in ltt:
+        S.add(task_section_process(lt))
+    S.commit()
+
+    # load action
+    dt_action = {}  # {task_id:[line1, line2]}
+    for lt in lta:
+        tid = int(lt[0])
+        dt_action.setdefault(tid, []).append(lt)
+
+    # write action to task.sql and action.sql
+    for task_lines in dt_action.values():
+        lt = task_lines[0]
+        task_action_section_process(lt, len(task_lines)>1)
+
+        if len(task_lines) > 1:
+            for lt in task_lines[1:]:
+                S.add(action_section_process(lt))
+
+        S.commit()
+
+
+
 
 
 if __name__ == "__main__":
-    #parse_file("task_pkg.txt")
-    #parse_file("action.txt")
-    parse_file("task.txt")
+    #save_pkg("task_pkg.txt")
+    save_task_and_action("task.txt", "action.txt")
 
 
 
