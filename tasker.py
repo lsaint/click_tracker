@@ -1,10 +1,50 @@
 # -*- coding: utf-8 -*-
 
+import argparse, time
 from datetime import datetime, date
 
+import sqlalchemy
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
+
+
+
+def getargs():
+    parse = argparse.ArgumentParser(epilog = "coMMon task confiG fiLe Parser -- L\'")
+    parse.add_argument('-m', metavar = "mysql_login_info", required = True,
+                        help = "user_name:password@host/database")
+    group = parse.add_mutually_exclusive_group(required=True)
+    group.add_argument('-p', metavar = 'task_pkg.txt', help="taskpkg file")
+    group.add_argument('-ta', metavar = ("task.txt", "action.txt"),
+                        nargs = 2, help = "task & action file")
+    #group.add_argument('-c',  action='store_true', help="clean backup tables")
+    args = parse.parse_args()
+    return vars(args)
+ARGS = getargs()
+
+
+engine = create_engine("mysql://%s" % ARGS["m"], convert_unicode=True)
+S = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
+Base = declarative_base(engine)
+
+
+def clean():
+    Base.metadata.reflect(engine)
+    for name, table in Base.metadata.tables.items():
+        if name.endswith("_new"):
+            print "drop table", name
+            table.drop()
+
+
+def clone():
+    engine.execute("CREATE TABLE `taskpkg_new` LIKE `taskpkg`")
+    engine.execute("CREATE TABLE `task_new` LIKE `task`")
+    engine.execute("CREATE TABLE `action_new` LIKE `action`")
+
+
+clean()
+clone()
 
 
 def t(s):
@@ -16,10 +56,6 @@ def today():
 def u(s):
     return s.decode("gbk")
 
-
-engine = create_engine("mysql://root:111333@localhost/CommonTaskSys_TaskInfo_appid", convert_unicode=True)
-S = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
-Base = declarative_base(engine)
 
 
 #+------------------------+----------------------+------+-----+---------------------+
@@ -38,7 +74,7 @@ Base = declarative_base(engine)
 #| expand                 | mediumtext           | YES  |     | NULL                |
 #+------------------------+----------------------+------+-----+---------------------+
 class Pkg(Base):
-    __tablename__ = 'taskpkg'
+    __tablename__ = 'taskpkg_new'
     __table_args__ = {'autoload':True}
 
 
@@ -56,6 +92,7 @@ def pkg_section_process(lt):
     p.repeat_type = 0
     p.ctime = today()
     p.mtime = today()
+    print "pkg {0} parsed".format(p.task_pkg_id)
 
     return p
 
@@ -90,7 +127,7 @@ def pkg_section_process(lt):
 #| expand                  | mediumtext           | YES  |     | NULL                |
 #+-------------------------+----------------------+------+-----+---------------------+
 class Task(Base):
-    __tablename__ = 'task'
+    __tablename__ = 'task_new'
     __table_args__ = {'autoload':True}
 
 
@@ -124,6 +161,7 @@ def task_section_process(lt):
     task.ctime = today()
     task.mtime = today()
 
+    print "task id {0} parsed".format(task.task_id)
     return task
 
 
@@ -135,6 +173,7 @@ def task_action_section_process(lt, is_multi):
         Task.expand: lt[4],
         Task.action_type: int(lt[5]),
         Task.have_other_actions: int(is_multi)})
+    print "task_id {0} updated".format(lt[0])
 
 
 
@@ -149,7 +188,7 @@ def task_action_section_process(lt, is_multi):
 #| expand             | varchar(1024)        | YES  |     | NULL    |
 #+--------------------+----------------------+------+-----+---------+
 class Action(Base):
-    __tablename__ = 'action'
+    __tablename__ = 'action_new'
     __table_args__ = {'autoload':True}
 
 
@@ -162,14 +201,15 @@ def action_section_process(lt):
     a.handle_type = int(lt[3])
     a.expand = lt[4]
     a.action_type = lt[5] or 0
+    print "action type {0} parsed".format(a.action_type)
 
     return a
 
 
 def parse_file(f):
     with open(f, 'r') as f:
+        print "reading", f.name
         lines = f.readlines()
-        meta = lines[0]
 
         lines = lines[2:]
 
@@ -177,9 +217,9 @@ def parse_file(f):
         for line in lines:
             lt = line.split("\t")
             lt = [x.strip() for x in lt]
-            print lt
 
             ret.append(lt)
+            print "id {0} loaded".format(lt[0])
 
     return ret
 
@@ -188,6 +228,7 @@ def save_pkg(f):
     for lt in parse_file(f):
         S.add(pkg_section_process(lt))
     S.commit()
+    print "sql pkg commit sucess"
 
 
 def save_task_and_action(ft, fa):
@@ -198,6 +239,7 @@ def save_task_and_action(ft, fa):
     for lt in ltt:
         S.add(task_section_process(lt))
     S.commit()
+    print "sql task commit sucess"
 
     # load action
     dt_action = {}  # {task_id:[line1, line2]}
@@ -214,15 +256,40 @@ def save_task_and_action(ft, fa):
             for lt in task_lines[1:]:
                 S.add(action_section_process(lt))
 
-        S.commit()
+    S.commit()
+    print "sql task & action commit sucess"
 
 
+def rename_p():
+    engine.execute("RENAME TABLE taskpkg TO taskpkg_{0}".format(int(time.time())))
+    engine.execute("RENAME TABLE taskpkg_new TO taskpkg")
 
+
+def rename_ta():
+    engine.execute("RENAME TABLE task TO task_{0}".format(int(time.time())))
+    engine.execute("RENAME TABLE task_new TO task")
+    engine.execute("RENAME TABLE action TO action_{0}".format(int(time.time())))
+    engine.execute("RENAME TABLE action_new TO action")
+
+
+def clean_backup():
+    print "clean_backup"
+
+
+def main():
+    f_pkg = ARGS["p"]
+    ta  = ARGS["ta"]
+    if f_pkg:
+        save_pkg(f_pkg)
+        rename_p()
+    elif ta:
+        f_task, f_action = ta
+        save_task_and_action(f_task, f_action)
+        rename_ta()
+    elif ARGS["c"]:
+        clean_backup()
 
 
 if __name__ == "__main__":
-    #save_pkg("task_pkg.txt")
-    save_task_and_action("task.txt", "action.txt")
-
-
+    main()
 
