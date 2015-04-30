@@ -6,6 +6,7 @@ from flask import request, make_response, redirect
 from Crypto.Cipher import AES
 import requests
 
+import cache
 from config import *
 from app_task_compat_pb2 import *
 
@@ -49,8 +50,9 @@ def tracing(wrapper):
         return "X"
     url, _, appid, uid, task_type = de
     resp = make_response(redirect(url))
-    if not request.cookies.get(wrapper):
+    if not request.cookies.get(wrapper) and not cache.is_visit(request.remote_addr):
         resp.set_cookie(wrapper, "L")
+        cache.markip(request.remote_addr)
         report_compat_action(appid, uid, task_type)
         logging.info("trace done: %s, %s, %s, %s", url, appid, uid, task_type)
     else:
