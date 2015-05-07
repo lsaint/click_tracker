@@ -16,9 +16,8 @@ def getargs():
                         help = "user_name:password@host/database")
     group = parse.add_mutually_exclusive_group(required=True)
     group.add_argument('-p', metavar = 'task_pkg.txt', help="taskpkg file")
-    group.add_argument('-ta', metavar = ("task.txt", "action.txt"),
-                        nargs = 2, help = "task & action file")
-    #group.add_argument('-c',  action='store_true', help="clean backup tables")
+    group.add_argument('-t', metavar = 'task.txt', help="task file")
+    group.add_argument('-a', metavar = 'action.txt', help="action file")
     args = parse.parse_args()
     return vars(args)
 ARGS = getargs()
@@ -96,6 +95,7 @@ def pkg_section_process(lt):
 
     return p
 
+
 #+-------------------------+----------------------+------+-----+---------------------+
 #| Field                   | Type                 | Null | Key | Default             |
 #+-------------------------+----------------------+------+-----+---------------------+
@@ -104,16 +104,10 @@ def pkg_section_process(lt):
 #| name                    | varchar(256)         | NO   |     | NULL                |
 #| task_description        | varchar(1024)        | NO   |     | NULL                |
 #| prompt                  | varchar(256)         | NO   |     | NULL                |
-#| action_type             | smallint(5) unsigned | NO   |     | 0                   |
-#| handle_type             | smallint(5) unsigned | NO   |     | NULL                |
-#| action_description      | varchar(1024)        | NO   |     | NULL                |
-#| need_done_count         | int(10) unsigned     | NO   |     | NULL                |
-#| action_expand           | varchar(1024)        | YES  |     | NULL                |
-#| have_other_actions      | tinyint(1)           | NO   |     | 0                   |
 #| award_type              | smallint(5) unsigned | NO   |     | NULL                |
 #| award_amount            | int(10) unsigned     | NO   |     | NULL                |
 #| award_detail            | varchar(256)         | NO   |     | NULL                |
-#| activation_conditions   | int(10) unsigned     | NO   |     | NULL                |
+#| activation_conditions   | smallint(5) unsigned | NO   |     | NULL                |
 #| activation_prev_task_id | int(10) unsigned     | NO   |     | NULL                |
 #| effect_begin_timestamp  | timestamp            | NO   |     | CURRENT_TIMESTAMP   |
 #| effect_end_timestamp    | timestamp            | NO   |     | 0000-00-00 00:00:00 |
@@ -122,7 +116,7 @@ def pkg_section_process(lt):
 #| task_handle_type        | smallint(5) unsigned | NO   |     | 0                   |
 #| task_type               | smallint(5) unsigned | NO   |     | 0                   |
 #| task_index              | smallint(5) unsigned | NO   |     | NULL                |
-#| ctime                   | timestamp            | NO   |     | 0000-00-00 00:00:00 |
+#| ctime                   | timestamp            | NO   |     | CURRENT_TIMESTAMP   |
 #| mtime                   | timestamp            | NO   |     | 0000-00-00 00:00:00 |
 #| expand                  | mediumtext           | YES  |     | NULL                |
 #+-------------------------+----------------------+------+-----+---------------------+
@@ -151,11 +145,6 @@ def task_section_process(lt):
     task.task_index = int(lt[13])
     task.task_type = int(lt[14])
 
-    task.action_type = 0
-    task.handle_type = 0
-    task.action_description = ""
-    task.need_done_count = 0
-    task.have_other_actions = 0
     task.repeat_type = 0
     task.task_handle_type = 0
     task.ctime = today()
@@ -163,17 +152,6 @@ def task_section_process(lt):
 
     print "task id {0} parsed".format(task.task_id)
     return task
-
-
-def task_action_section_process(lt, is_multi):
-    S.query(Task).filter_by(task_id=int(lt[0])).update({
-        Task.action_description: u(lt[1]),
-        Task.need_done_count: int(lt[2]),
-        Task.handle_type: int(lt[3]),
-        Task.expand: lt[4],
-        Task.action_type: int(lt[5]),
-        Task.have_other_actions: int(is_multi)})
-    print "task_id {0} updated".format(lt[0])
 
 
 
@@ -231,45 +209,43 @@ def save_pkg(f):
     print "sql pkg commit sucess"
 
 
-def save_task_and_action(ft, fa):
+def save_task(ft):
     ltt = parse_file(ft)
-    lta = parse_file(fa)
-
-    # write task.sql, default action
     for lt in ltt:
         S.add(task_section_process(lt))
     S.commit()
     print "sql task commit sucess"
 
-    # load action
-    dt_action = {}  # {task_id:[line1, line2]}
+
+def save_action(fa):
+    lta = parse_file(fa)
     for lt in lta:
-        tid = int(lt[0])
-        dt_action.setdefault(tid, []).append(lt)
-
-    # write action to task.sql and action.sql
-    for task_lines in dt_action.values():
-        lt = task_lines[0]
-        task_action_section_process(lt, len(task_lines)>1)
-
-        if len(task_lines) > 1:
-            for lt in task_lines[1:]:
-                S.add(action_section_process(lt))
-
+        S.add(action_section_process(lt))
     S.commit()
-    print "sql task & action commit sucess"
+    print "sql action commit sucess"
+
 
 
 def rename_p():
     engine.execute("RENAME TABLE taskpkg TO taskpkg_{0}".format(int(time.time())))
     engine.execute("RENAME TABLE taskpkg_new TO taskpkg")
+    engine.execute("drop table if exists action_new;")
+    engine.execute("drop table if exists task_new;")
 
 
-def rename_ta():
+def rename_t():
     engine.execute("RENAME TABLE task TO task_{0}".format(int(time.time())))
     engine.execute("RENAME TABLE task_new TO task")
+    engine.execute("drop table if exists action_new;")
+    engine.execute("drop table if exists taskpkg_new;")
+
+
+def rename_a():
     engine.execute("RENAME TABLE action TO action_{0}".format(int(time.time())))
     engine.execute("RENAME TABLE action_new TO action")
+    engine.execute("drop table if exists task_new;")
+    engine.execute("drop table if exists taskpkg_new;")
+
 
 
 def clean_backup():
@@ -278,16 +254,17 @@ def clean_backup():
 
 def main():
     f_pkg = ARGS["p"]
-    ta  = ARGS["ta"]
+    f_task  = ARGS["t"]
+    f_action = ARGS["a"]
     if f_pkg:
         save_pkg(f_pkg)
         rename_p()
-    elif ta:
-        f_task, f_action = ta
-        save_task_and_action(f_task, f_action)
-        rename_ta()
-    elif ARGS["c"]:
-        clean_backup()
+    elif f_task:
+        save_task(f_task)
+        rename_t()
+    elif f_action:
+        save_action(f_action)
+        rename_a()
 
 
 if __name__ == "__main__":
