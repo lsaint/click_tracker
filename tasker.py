@@ -56,6 +56,10 @@ def u(s):
     return s.decode("gbk")
 
 
+def checkRange(x, a, b):
+    return x in range(a, b+1)
+
+
 
 #+------------------------+----------------------+------+-----+---------------------+
 #| Field                  | Type                 | Null | Key | Default             |
@@ -91,8 +95,16 @@ def pkg_section_process(lt):
     p.repeat_type = 0
     p.ctime = today()
     p.mtime = today()
-    print "pkg {0} parsed".format(p.task_pkg_id)
 
+    if p.effect_begin_timestamp > p.effect_end_timestamp:
+        print "[ERROR]effect_begin_timestamp must early than effect_end_timestamp"
+        exit(1)
+    if not checkRange(p.activation_conditions, 1, 2):
+        print "[ERROR]activation_conditions must in 1-2" 
+        exit(1)
+
+
+    print "pkg {0} parsed".format(p.task_pkg_id)
     return p
 
 
@@ -126,7 +138,7 @@ class Task(Base):
 
 
 
-#任务ID	任务包ID	任务名称	任务描述	任务提示	激活条件	有效开始时间	有效结束时间	周期间隔	前置任务ID	奖励数量	奖励描述	奖励类型	处理类型	排序索引	任务分类
+#任务ID	任务包ID	任务名称	任务描述	任务提示	激活条件	有效开始时间	有效结束时间    周期重复类型	周期间隔	前置任务ID	奖励数量	奖励描述	奖励类型	处理类型	排序索引	任务分类
 def task_section_process(lt):
     task = Task()
     task.task_id = int(lt[0])
@@ -137,18 +149,31 @@ def task_section_process(lt):
     task.activation_conditions = int(lt[5])
     task.effect_begin_timestamp = t(lt[6])
     task.effect_end_timestamp = t(lt[7])
-    task.repeat_cycle = int(lt[8])
-    task.activation_prev_task_id = int(lt[9])
-    task.award_amount = int(lt[10])
-    task.award_detail = u(lt[11])
-    task.award_type = int(lt[12])
-    task.task_index = int(lt[13])
-    task.task_type = int(lt[14])
+    task.repeat_type = int(lt[8])
+    task.repeat_cycle = int(lt[9])
+    task.activation_prev_task_id = int(lt[10])
+    task.award_amount = int(lt[11])
+    task.award_detail = u(lt[12])
+    task.award_type = int(lt[13])
+    task.task_handle_type = int(lt[14])
+    task.task_index = int(lt[15])
+    task.task_type = int(lt[16])
 
-    task.repeat_type = 0
-    task.task_handle_type = 0
     task.ctime = today()
     task.mtime = today()
+
+    if task.effect_begin_timestamp > task.effect_end_timestamp:
+        print "[ERROR]effect_begin_timestamp must early than effect_end_timestamp"
+        exit(1)
+    if not checkRange(task.activation_conditions, 1, 4):
+        print "[ERROR]activation_conditions must in 1-4"
+        exit(1)
+    if not checkRange(task.repeat_type, 0, 1):
+        print "[ERROR]repeat_type must in 0-1"
+        exit(1)
+    if not checkRange(task.task_handle_type, 1, 2):
+        print "[ERROR]task_handle_type must in 1-2"
+        exit(1)
 
     print "task id {0} parsed".format(task.task_id)
     return task
@@ -179,8 +204,12 @@ def action_section_process(lt):
     a.handle_type = int(lt[3])
     a.expand = lt[4]
     a.action_type = lt[5] or 0
-    print "action type {0} parsed".format(a.action_type)
 
+    if not checkRange(a.handle_type, 1, 4):
+        print "[ERROR]handle_type must in 1-4"
+        exit(1)
+
+    print "action type {0} parsed".format(a.action_type)
     return a
 
 
