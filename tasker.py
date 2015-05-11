@@ -116,6 +116,7 @@ def pkg_section_process(lt):
 #| name                    | varchar(256)         | NO   |     | NULL                |
 #| task_description        | varchar(1024)        | NO   |     | NULL                |
 #| prompt                  | varchar(256)         | NO   |     | NULL                |
+#| award_business_type     | smallint(5) unsigned | NO   |     | NULL                |
 #| award_type              | smallint(5) unsigned | NO   |     | NULL                |
 #| award_amount            | int(10) unsigned     | NO   |     | NULL                |
 #| award_detail            | varchar(256)         | NO   |     | NULL                |
@@ -138,7 +139,7 @@ class Task(Base):
 
 
 
-#任务ID	任务包ID	任务名称	任务描述	任务提示	激活条件	有效开始时间	有效结束时间    周期重复类型	周期间隔	前置任务ID	奖励数量	奖励描述	奖励类型	处理类型	排序索引	任务分类
+#任务ID	任务包ID	任务名称	任务描述	任务提示	激活条件	有效开始时间	有效结束时间    周期重复类型	周期间隔	前置任务ID	奖励数量	奖励描述    奖励业务类型	奖励类型	处理类型	排序索引	任务分类
 def task_section_process(lt):
     task = Task()
     task.task_id = int(lt[0])
@@ -154,10 +155,11 @@ def task_section_process(lt):
     task.activation_prev_task_id = int(lt[10])
     task.award_amount = int(lt[11])
     task.award_detail = u(lt[12])
-    task.award_type = int(lt[13])
-    task.task_handle_type = int(lt[14])
-    task.task_index = int(lt[15])
-    task.task_type = int(lt[16])
+    task.award_business_type = int(lt[13])
+    task.award_type = int(lt[14])
+    task.task_handle_type = int(lt[15])
+    task.task_index = int(lt[16])
+    task.task_type = int(lt[17])
 
     task.ctime = today()
     task.mtime = today()
@@ -173,6 +175,9 @@ def task_section_process(lt):
         exit(1)
     if not checkRange(task.task_handle_type, 1, 2):
         print "[ERROR]task_handle_type must in 1-2"
+        exit(1)
+    if not checkRange(task.award_business_type, 1, 2):
+        print "[ERROR]award_business_type must in 1-2"
         exit(1)
 
     print "task id {0} parsed".format(task.task_id)
